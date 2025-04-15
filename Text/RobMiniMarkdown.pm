@@ -11,23 +11,71 @@ sub markdown {
     my $html = "";
     my $in_code_block = 0;
     my $in_list = 0;
+    my $list_type = '';
+    my $in_frontmatter = 0;
+    my $in_html_block = 0;
+    my $in_indented_code = 0;
+    my @html_block;
+    my @code_buffer;
+    my @indented_buffer;
 
     foreach my $line (@lines) {
-        # Code block start/end
+        # Skip YAML frontmatter
+        if ($line =~ /^---\s*$/) {
+            $in_frontmatter = !$in_frontmatter;
+            next;
+        }
+        next if $in_frontmatter;
+
         if ($line =~ /^```/) {
-            $html .= $in_code_block ? "</pre>\n" : "<pre>\n";
+            if ($in_code_block) {
+                $html .= join('', @code_buffer) . "</pre>\n";
+                @code_buffer = ();
+            } else {
+                $html .= "<pre>";
+            }
             $in_code_block = !$in_code_block;
             next;
         }
         if ($in_code_block) {
-            $html .= "$line\n";
+            push @code_buffer, "$line\n";
+            next;
+        }
+
+        # HTML block: detect opening tag
+        if (!$in_html_block && $line =~ /^\s*<(\w+)[^>]*?>\s*$/) {
+            $in_html_block = 1;
+            @html_block = ($line);
+            next;
+        }
+
+        if ($in_html_block) {
+            push @html_block, $line;
+
+            # If we detect the closing tag, flush
+            if ($line =~ /<\/\w+>\s*$/) {
+                $html .= join("\n", @html_block) . "\n";
+                $in_html_block = 0;
+                @html_block = ();
+            }
             next;
         }
 
         # Indented code blocks
         if ($line =~ /^ {4,}/) {
-            $html .= "<pre>$line</pre>\n";
+            if (!$in_indented_code) {
+                $in_indented_code = 1;
+                @indented_buffer = ();
+            }
+	    $line =~ s/^ {4}//;   # remove four spaces from beginning of each line indented with four or more spaces
+            push @indented_buffer, "$line\n";
             next;
+        }
+
+        if ($in_indented_code) {
+            $html .= "<pre>" . join('', @indented_buffer) . "</pre>\n";
+            $in_indented_code = 0;
+            @indented_buffer = ();
         }
 
         # Headings
@@ -51,29 +99,38 @@ sub markdown {
 
         # Unordered list
         if ($line =~ /^\s*[-+*]\s+(.*)/) {
-            $html .= "<ul>\n" unless $in_list;
-            $in_list = 1;
+            if (!$in_list || $list_type ne 'ul') {
+                $html .= "</$list_type>\n" if $in_list;
+                $html .= "<ul>\n";
+                $in_list = 1;
+                $list_type = 'ul';
+            }
             $html .= "  <li>$1</li>\n";
             next;
         }
 
         # Ordered list
         if ($line =~ /^\s*\d+\.\s+(.*)/) {
-            $html .= "<ol>\n" unless $in_list;
-            $in_list = 1;
+            if (!$in_list || $list_type ne 'ol') {
+                $html .= "</$list_type>\n" if $in_list;
+                $html .= "<ol>\n";
+                $in_list = 1;
+                $list_type = 'ol';
+            }
             $html .= "  <li>$1</li>\n";
             next;
         }
 
-        # End list
+        # End list if current line isn't a list item
         if ($in_list and $line !~ /^\s*([-+*]|\d+\.)\s+/) {
-            $html .= ($line =~ /^\s*\d+\./ ? "</ol>\n" : "</ul>\n");
+            $html .= "</$list_type>\n";
             $in_list = 0;
+            $list_type = '';
         }
 
         # Tables (simple row)
         if ($line =~ /^\s*\|.*\|\s*$/) {
-            $html .= "<div class=\"table-row\">$line</div>\n"; # placeholder logic
+            $html .= "<div class=\"table-row\">$line</div>\n";
             next;
         }
 
@@ -90,12 +147,21 @@ sub markdown {
         $line =~ s/!\[([^\]]*)\]\(([^\)]+)\)/<img alt="$1" src="$2" \/>/g;
         $line =~ s/\[([^\]]+)\]\(([^\)]+)\)/<a href="$2">$1<\/a>/g;
 
-        # Paragraph
-        $html .= "<p>$line</p>\n" unless $line =~ /^\s*$/;
+        # Paragraph (default case)
+        if ($line =~ /^\s*$/) {
+            next;
+        } else {
+            $html .= "<p>$line</p>\n";
+        }
     }
 
-    # Close list if still open
-    $html .= "</ul>\n" if $in_list;
+    # Close any open list
+    $html .= "</$list_type>\n" if $in_list;
+
+    # Final flush, just in case the file ends with indented code
+    if ($in_indented_code) {
+        $html .= "<pre>" . join('', @indented_buffer) . "</pre>\n";
+    }
 
     return $html;
 }
