@@ -37,13 +37,15 @@ sub markdown {
         }
         next if $in_frontmatter;
 
-        if ($line =~ /^```/) {
+        if ($line =~ /^```(\w+)?/) {
             $html .= flush_paragraph();  # <-- flush before starting code block
             if ($in_code_block) {
                 $html .= join('', @code_buffer) . "</code></pre>\n";
                 @code_buffer = ();
             } else {
-                $html .= "<pre><code>";
+	        my $lang = $1 || '';
+		my $class = $lang ? " class=\"language-$lang\"" : '';
+		$html .= "<pre><code$class>";
             }
             $in_code_block = !$in_code_block;
             next;
