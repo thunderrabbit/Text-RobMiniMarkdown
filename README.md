@@ -36,7 +36,7 @@ Text-RobMiniMarkdown/
 │   └── Text/
 │       └── RobMiniMarkdown.pm
 ├── t/
-│   └── basic.t           # (Coming soon?) Tests
+│   └── basic.t           # run tests with `prove -l t`
 └── README.md
 ```
 
