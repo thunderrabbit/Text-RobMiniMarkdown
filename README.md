@@ -27,6 +27,11 @@ use Text::RobMiniMarkdown;
 my $parser = Text::RobMiniMarkdown->new;
 my $html   = $parser->markdown($markdown_string);
 ```
+## 🧪 CI Status
+
+![CI](https://github.com/thunderrabbit/Text-RobMiniMarkdown/actions/workflows/test.yml/badge.svg)
+
+### run tests locally with `prove -l t`
 
 ## 🗂️ Directory Layout
 
@@ -36,7 +41,7 @@ Text-RobMiniMarkdown/
 │   └── Text/
 │       └── RobMiniMarkdown.pm
 ├── t/
-│   └── basic.t           # run tests with `prove -l t`
+│   └── basic.t
 └── README.md
 ```
 
