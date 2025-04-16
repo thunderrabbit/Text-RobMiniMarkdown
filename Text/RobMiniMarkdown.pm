@@ -2,8 +2,18 @@
 package Text::RobMiniMarkdown;
 use strict;
 use warnings;
+use HTML::Entities;
 
 sub new { bless {}, shift }
+
+my @para_buffer;
+
+sub flush_paragraph {
+    my $joined = join ' ', @para_buffer;
+    @para_buffer = ();
+    return "<p>$joined</p>\n" if $joined =~ /\S/;
+    return '';
+}
 
 sub markdown {
     my ($self, $text) = @_;
@@ -28,17 +38,18 @@ sub markdown {
         next if $in_frontmatter;
 
         if ($line =~ /^```/) {
+            $html .= flush_paragraph();  # <-- flush before starting code block
             if ($in_code_block) {
-                $html .= join('', @code_buffer) . "</pre>\n";
+                $html .= join('', @code_buffer) . "</code></pre>\n";
                 @code_buffer = ();
             } else {
-                $html .= "<pre>";
+                $html .= "<pre><code>";
             }
             $in_code_block = !$in_code_block;
             next;
         }
         if ($in_code_block) {
-            push @code_buffer, "$line\n";
+            push @code_buffer, encode_entities("$line\n");
             next;
         }
 
@@ -67,7 +78,7 @@ sub markdown {
                 $in_indented_code = 1;
                 @indented_buffer = ();
             }
-	    $line =~ s/^ {4}//;   # remove four spaces from beginning of each line indented with four or more spaces
+            $line =~ s/^ {4}//;   # remove four spaces from beginning of each line indented with four or more spaces
             push @indented_buffer, "$line\n";
             next;
         }
@@ -80,6 +91,7 @@ sub markdown {
 
         # Headings
         if ($line =~ /^(#{1,6})\s+(.*)/) {
+            $html .= flush_paragraph();
             my $level = length($1);
             $html .= "<h$level>$2</h$level>\n";
             next;
@@ -87,18 +99,21 @@ sub markdown {
 
         # Horizontal rule
         if ($line =~ /^\s*(\*\*\*|---|___)\s*$/) {
+            $html .= flush_paragraph();
             $html .= "<hr/>\n";
             next;
         }
 
         # Blockquote
         if ($line =~ /^>\s?(.*)/) {
+            $html .= flush_paragraph();
             $html .= "<blockquote>$1</blockquote>\n";
             next;
         }
 
         # Unordered list
         if ($line =~ /^\s*[-+*]\s+(.*)/) {
+            $html .= flush_paragraph();
             if (!$in_list || $list_type ne 'ul') {
                 $html .= "</$list_type>\n" if $in_list;
                 $html .= "<ul>\n";
@@ -111,6 +126,7 @@ sub markdown {
 
         # Ordered list
         if ($line =~ /^\s*\d+\.\s+(.*)/) {
+            $html .= flush_paragraph();
             if (!$in_list || $list_type ne 'ol') {
                 $html .= "</$list_type>\n" if $in_list;
                 $html .= "<ol>\n";
@@ -123,6 +139,7 @@ sub markdown {
 
         # End list if current line isn't a list item
         if ($in_list and $line !~ /^\s*([-+*]|\d+\.)\s+/) {
+            $html .= flush_paragraph();
             $html .= "</$list_type>\n";
             $in_list = 0;
             $list_type = '';
@@ -130,6 +147,7 @@ sub markdown {
 
         # Tables (simple row)
         if ($line =~ /^\s*\|.*\|\s*$/) {
+            $html .= flush_paragraph();
             $html .= "<div class=\"table-row\">$line</div>\n";
             next;
         }
@@ -149,10 +167,11 @@ sub markdown {
 
         # Paragraph (default case)
         if ($line =~ /^\s*$/) {
-            next;
+            $html .= flush_paragraph();
         } else {
-            $html .= "<p>$line</p>\n";
+            push @para_buffer, $line;
         }
+
     }
 
     # Close any open list
@@ -163,6 +182,7 @@ sub markdown {
         $html .= "<pre>" . join('', @indented_buffer) . "</pre>\n";
     }
 
+    $html .= flush_paragraph();
     return $html;
 }
 
