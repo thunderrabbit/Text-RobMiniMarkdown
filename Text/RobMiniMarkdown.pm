@@ -161,15 +161,15 @@ sub markdown {
         # Italic
         $line =~ s/(?<!\*)\*(.*?)\*(?!\*)/<em>$1<\/em>/g;
 
-        # Naked URLs to clickable links
-        $line =~ s{
-            \b
-            (https?://[^\s<>"'\)]+)
-        }{<a href="$1">$1</a>}gx;
-
         # Links and images
         $line =~ s/!\[([^\]]*)\]\(([^\)]+)\)/<img alt="$1" src="$2" \/>/g;
         $line =~ s/\[([^\]]+)\]\(([^\)]+)\)/<a href="$2">$1<\/a>/g;
+
+        # Naked URLs to clickable links
+        $line =~ s{
+            (?<!["'=])          # Don't match if preceded by href=" or src=' etc
+            (https?://[^\s<>"'\)]+)
+        }{<a href="$1">$1</a>}gx;
 
         # Paragraph (default case)
         if ($line =~ /^\s*$/) {
