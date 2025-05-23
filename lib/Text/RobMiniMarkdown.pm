@@ -25,6 +25,9 @@ sub markdown {
     my $in_frontmatter = 0;
     my $in_html_block = 0;
     my $in_indented_code = 0;
+    my $in_div_block = 0;    # ::: ai chatgpt will start a div block with these classes
+    my $div_classes = '';
+    my @div_content = ();    # ::: (without text) to end the block
     my @html_block;
     my @code_buffer;
     my @indented_buffer;
@@ -36,6 +39,31 @@ sub markdown {
             next;
         }
         next if $in_frontmatter;
+
+	# Div block start (e.g. ::: ai chatgpt)
+        if ($line =~ /^:::\s*([\w\s-]+)/) {
+            $html .= flush_paragraph();
+            $in_div_block = 1;
+            $div_classes = $1;
+            @div_content = ();
+            next;
+        }
+
+        # Div block end
+        if ($in_div_block && $line =~ /^:::/) {
+            $html .= "<div class=\"$div_classes\">\n";
+            $html .= $self->markdown(join("\n", @div_content));  # recursively parse inner markdown
+            $html .= "</div>\n";
+            $in_div_block = 0;
+            @div_content = ();
+            next;
+        }
+
+        # Accumulate div block lines
+        if ($in_div_block) {
+            push @div_content, $line;
+            next;
+        }
 
         if ($line =~ /^```(\w+)?/) {
             $html .= flush_paragraph();  # <-- flush before starting code block
