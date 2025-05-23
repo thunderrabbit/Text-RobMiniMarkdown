@@ -19,6 +19,7 @@ sub markdown {
     my ($self, $text) = @_;
     my @lines = split /\n/, $text;
     my $html = "";
+    my $linenum = 0;
     my $in_code_block = 0;
     my $in_list = 0;
     my $list_type = '';
@@ -33,12 +34,20 @@ sub markdown {
     my @indented_buffer;
 
     foreach my $line (@lines) {
+        $linenum++;
         # Skip YAML frontmatter
-        if ($line =~ /^---\s*$/) {
-            $in_frontmatter = !$in_frontmatter;
+        if ($linenum == 1 && $line =~ /^---\s*$/) {
+            $in_frontmatter = 1;
             next;
         }
-        next if $in_frontmatter;
+
+        if ($in_frontmatter) {
+            if ($line =~ /^---\s*$/) {
+                $in_frontmatter = 0;
+            }
+            next;
+        }
+        # end YAML frontmatter handling
 
 	# Div block start (e.g. ::: ai chatgpt)
         if ($line =~ /^:::\s*([\w\s-]+)/) {
