@@ -200,6 +200,10 @@ sub markdown {
         # Italic
         $line =~ s/(?<!\*)\*(.*?)\*(?!\*)/<em>$1<\/em>/g;
 
+        # Clickable image thumbnails (must come before regular images/links)
+        # Matches [![alt](thumbnail)](full-size) and converts to <a href="full"><img alt="alt" src="thumb"/></a>
+        $line =~ s/\[!\[([^\]]*)\]\(([^\)]+)\)\]\(([^\)]+)\)/<a href="$3"><img alt="$1" src="$2" \/><\/a>/g;
+
         # Links and images
         $line =~ s/!\[([^\]]*)\]\(([^\)]+)\)/<img alt="$1" src="$2" \/>/g;
         $line =~ s/\[([^\]]+)\]\(([^\)]+)\)/<a href="$2">$1<\/a>/g;
